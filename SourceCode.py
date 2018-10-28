@@ -1,0 +1,100 @@
+from bs4 import BeautifulSoup
+import re
+import sqlite3
+import urllib.request, urllib.error, urllib.parse
+from pprint import pprint
+
+conn = sqlite3.connect("python_meetup.sqlite")
+cursor = conn.cursor()
+table_name = "finviz_data"
+cursor.execute("DROP TABLE IF EXISTS " + table_name)
+cursor.execute("""
+	CREATE TABLE {} (
+		no integer,
+		ticket varchar(10),
+		company varchar(255),
+		sector varchar(255),
+		industry varchar(255),
+		country varchar(255),
+		market_cap float(4),
+		pe float(4),
+		price float(4),
+		change float(4),
+		volume integer
+	);
+""".format(table_name))
+conn.commit()
+
+def get_table_headers():
+	url = "https://finviz.com/screener.ashx?v=111&f=cap_mega&o=-marketcap"
+	content = urllib.request.urlopen(url).read()
+	soup = BeautifulSoup(content, "html.parser")
+	table_headers = []
+	for th in soup.select(".table-top"):
+		table_headers.append(th.get_text().replace(".", ""))
+	# if you're worried about Big O Notation, use list comprehension
+	#table_headers = [th.get_text().replace(".", "") for th in soup.select(".table-top")]
+	ticker = soup.select(".table-top-s")
+	table_headers.insert(1, ticker[0].get_text())
+	pprint(table_headers)
+	return table_headers
+
+#table_headers = get_table_headers()
+
+def get_rows_from_soup(soup, table_headers):
+	table_row_data = []
+	count = 0
+	row_data = {}
+	for td in soup.select(".screener-body-table-nw"):
+		row_data[table_headers[count]] = td.get_text()
+		count += 1
+		if count >= len(table_headers):
+			count = 0
+			table_row_data.append(row_data)
+			row_data = {}
+	return table_row_data
+
+
+def get_data():
+	headers = get_table_headers()
+	mysite = 'www.xx.com'
+	initial_number = 1
+	while mysite == 'www.xx.com':
+		url = "https://finviz.com/screener.ashx?v=111&f=cap_mega&o=-marketcap".format(
+			initial_number
+		)
+		content = urllib.request.urlopen(url).read()
+		soup = BeautifulSoup(content, "html.parser")
+		data = get_rows_from_soup(soup, headers)
+		for row in data:
+			print(row['No'])
+			print(row['Ticker'])
+			print(row['Company'])
+			print(row['Sector'])
+			print(row['Industry'])
+			print(row['Country'])
+			print(row['Market Cap'][:-1])
+			print("") if row['P/E'] == "-" else print(row['P/E'])
+			print(row['Price'])
+			print(row['Change'][:-1])
+			print(row['Volume'].replace(',', ""))
+			print("-" * 100)
+			cursor.execute('INSERT INTO finviz_data VALUES(?,?,?,?,?,?,?,?,?,?,?)',(
+					row['No'],
+					row['Ticker'],
+					row['Company'],
+					row['Sector'],
+					row['Industry'],
+					row['Country'],
+					row['Market Cap'][:-1],
+					"" if row['P/E'] == "-" else row['P/E'],
+					row['Price'],
+					row['Change'][:-1],
+					row['Volume'].replace(',', ""),
+				))
+		conn.commit()
+		initial_number += 20
+		if not re.findall(b"<b>next</b>", content):
+			mysite = 'xx'
+
+data = get_data()
