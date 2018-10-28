@@ -35,13 +35,13 @@ def get_table_headers():
 	for th in soup.select(".table-top"):
 		table_headers.append(th.get_text().replace(".", ""))
 	
-	#table_headers = [th.get_text().replace(".", "") for th in soup.select(".table-top")]
+	
 	ticker = soup.select(".table-top-s")
 	table_headers.insert(1, ticker[0].get_text())
 	pprint(table_headers)
 	return table_headers
 
-#table_headers = get_table_headers()
+
 
 def get_rows_from_soup(soup, table_headers):
 	table_row_data = []
